@@ -1,0 +1,276 @@
+function [G]=adaptive_filter(A,s,p)
+[m,n]=size(A);
+a=floor(s/2);
+b=floor(p/2);
+Z=zeros(m+2*a,n+2*b);
+Z(1+a:m+a,1+b:n+b)=A;
+G=zeros(m,n);
+v=2500;
+for i=1+a:m+a
+    for j=1+b:n+b
+        v_l=std2(Z(i-a:i+a,j-b:j+b))^2;
+        m_l=mean2(Z(i-a:i+a,j-b:j+b));
+        temp=v/v_l;
+        if(temp>1)
+            temp=1;
+        end
+        G(i-a,j-b)=Z(i,j)-temp*(Z(i,j)-m_l);
+    end
+end
+imshow(G,[]);
+title('自适应局部降噪滤波');
+
+function [G]=adaptivemedian_filter(A,s,p)
+[m,n]=size(A);
+a=floor(s/2);
+b=floor(p/2);
+
+Z=zeros(m+2*a,n+2*b);
+Z(1+a:m+a,1+b:n+b)=A;
+G=zeros(m,n);
+for i=1+a:m+a
+    for j=1+b:n+b
+        p=floor(a/2);
+q=floor(b/2);
+        while(p<=a&&q<=b)
+        M=Z(i-p:i+p,j-q:j+q);
+        M=M(:);
+        med=median(M);
+        z_max=max(M);
+        z_min=min(M);
+        A1=med-z_min;
+        A2=med-z_max;
+        if(A1>0&&A2<0)
+            B1=Z(i,j)-z_min;
+            B2=Z(i,j)-z_max;
+            if(B1>0&&B2<0)
+                G(i-a,j-b)=Z(i,j);
+                break;
+            else
+                G(i-a,j-b)=med;
+                break;
+            end
+        else
+            p=p+1;q=q+1;
+        end
+        if(p==a&&q==b)
+            G(i-a,j-b)=med;
+        end
+        end
+            
+    end
+end
+imshow(G,[]);
+
+function [G]=aerfa_filter(A,s,p,d)
+[m,n]=size(A);
+a=floor(s/2);
+b=floor(p/2);
+Z=zeros(m+2*a,n+2*b);
+Z(1+a:m+a,1+b:n+b)=A;
+G=zeros(m,n);
+
+for i=1+a:m+a
+    for j=1+b:n+b
+        temp=reshape(Z(i-a:i+a,j-b:j+b),1,49);
+        temp2=sort(temp);
+        temp3=temp2(d/2:49-d/2);
+        G(i-a,j-b)=sum(temp3)/(49-d);
+    end
+end
+imshow(G,[]);
+title('阿尔法滤波器滤波');
+
+function [G]=Amean_filter(A,k)
+%%%%%%k阶均值平滑滤波器
+[m,n]=size(A);
+a=floor(k/2);
+Z=zeros(m+2*a,n+2*a);
+Z(1+a:m+a,1+a:n+a)=A;
+S=ones(k,k);
+ss=sum(sum(S));
+G=zeros(m,n);
+for i=1+a:m+a
+    for j=1+a:n+a
+        G(i-a,j-a)=round(sum(sum(Z(i-a:i+a,j-a:j+a).*S))/ss);
+    end
+end
+imshow(G,[]);title('算术均值滤波');
+
+function [H]=BLPF(A,d0,n)
+[p,q]=size(A);
+m_mid=round(p/2);
+n_mid=round(q/2);
+for i=1:p
+    for j=1:q
+        d=sqrt((i-m_mid)^2+(j-n_mid)^2);
+        H(i,j)=1/(1+(d/d0)^(2*n));
+    end
+end
+
+function [G]=Cmean_filter(A,s,p,Q)
+[m,n]=size(A);
+a=floor(s/2);
+b=floor(p/2);
+Z=zeros(m+2*a,n+2*b);
+Z(1+a:m+a,1+b:n+b)=A;
+G=zeros(m,n);
+for i=1+a:m+a
+    for j=1+b:n+b
+        temp1=sum(sum(Z(i-a:i+a,j-b:j+b).^(Q+1)));
+        temp2=sum(sum(Z(i-a:i+a,j-b:j+b).^(Q)));
+        G(i-a,j-b)=temp1/temp2;
+    end
+end
+imshow(G,[]);
+title('逆谐波均值滤波');
+
+function [H]=degradation(A)
+[m,n]=size(A);
+H=zeros(m,n);
+a=0.3;b=0.3;
+T=1;
+for u=1:m
+    for v=1:n
+        H(u,v)=T/(pi*(u*a+v*b))*sin(pi*(u*a+v*b))*(-1)^(u*a+v*b);
+    end
+end
+
+function [G]=g_noise(F,m,v)
+B=v/256*randn(size(F))+m/256;
+G=uint8(B*256)+F;
+imshow(G);title('高斯噪声');
+
+
+function [H]=GLPF(A,d0)
+[p,q]=size(A);
+m_mid=round(p/2);
+n_mid=round(q/2);
+for i=1:p
+    for j=1:q
+        d=sqrt((i-m_mid)^2+(j-n_mid)^2);
+        H(i,j)=exp(-d^2/(2*d0^2));
+    end
+end
+
+function [G]=Gmean_filter(A,s,p)
+[m,n]=size(A);
+a=floor(s/2);
+b=floor(p/2);
+Z=zeros(m+2*a,n+2*b);
+Z(1+a:m+a,1+b:n+b)=A;
+G=zeros(m,n);
+for i=1+a:m+a
+    for j=1+b:n+b
+        temp=prod(prod(Z(i-a:i+a,j-b:j+b)));
+        G(i-a,j-b)=temp^(1/(s*p));
+    end
+end
+imshow(G,[]);
+title('几何均值滤波');
+
+function [G]=Hmean_filter(A,s,p)
+[m,n]=size(A);
+a=floor(s/2);
+b=floor(p/2);
+Z=zeros(m+2*a,n+2*b);
+Z(1+a:m+a,1+b:n+b)=A;
+G=zeros(m,n);
+for i=1+a:m+a
+    for j=1+b:n+b
+        temp=sum(sum(1./Z(i-a:i+a,j-b:j+b)));
+        G(i-a,j-b)=a*b/temp;
+    end
+end
+imshow(G,[]);
+title('谐波均值滤波');
+
+lena=imread('lena.bmp');
+B=lena;
+P=size(B,1);
+Q=size(B,2);
+%%H=fspecial('motion',[P,Q]);
+H=degradation(B);
+F=fftshift(fft2(B));
+K=F.*H;%%运动模糊
+C=ifft2(ifftshift(K));
+G=uint8(real(255*C/max(C(:))));
+g=g_noise(G,0,10);
+G=fftshift(fft2(g));
+k=0.04;
+W=weina(G,H,k);%%%%%%%%维纳滤波器
+F=W.*G;
+FF=ifft2(ifftshift(F));
+FF=uint8(real(255*FF/max(FF(:))));
+%imshow(FF,[]);    
+%title('维纳滤波');
+gama=0.000000000000000008;
+P=LHPF(G);
+W2=yueshu(G,H,gama,P);
+F2=W2.*G;
+FF2=ifft2(ifftshift(F2));
+FF2=uint8(real(255*FF2/max(FF2(:))));
+imshow(real(FF2),[]);    
+title('最小约束二乘滤波');
+
+function [H]=LHPF(A)
+[p,q]=size(A);
+m_mid=round(p/2);
+n_mid=round(q/2);
+for i=1:p
+    for j=1:q
+        d=sqrt((i-m_mid)^2+(j-n_mid)^2);
+        H(i,j)=-4*(pi^2)*d^2;
+    end
+end
+
+function [G]=median_filter(A,s,p)
+[m,n]=size(A);
+a=floor(s/2);
+b=floor(p/2);
+Z=zeros(m+2*a,n+2*b);
+Z(1+a:m+a,1+b:n+b)=A;
+G=zeros(m,n);
+for i=1+a:m+a
+    for j=1+b:n+b
+        M=Z(i-a:i+a,j-b:j+b);
+        M=M(:);
+        med=median(M);
+        G(i-a,j-b)=med;
+    end
+end
+
+function [G]=Mmean_filter(A,k)
+%%%%%%k阶均值平滑滤波器
+[m,n]=size(A);
+a=floor(k/2);
+Z=zeros(m+2*a,n+2*a);
+Z(1+a:m+a,1+a:n+a)=A;
+S=ones(k,k);
+ss=sum(sum(S));
+G=zeros(m,n);
+for i=1+a:m+a
+    for j=1+a:n+a
+        G(i-a,j-a)=0.5*(max(max(Z(i-a:i+a,j-a:j+a)))+min(min(Z(i-a:i+a,j-a:j+a))));
+    end
+end
+imshow(G,[]);
+
+function [H]=weina(A,T,K)
+[m,n]=size(A);
+H=zeros(m,n);
+
+for u=1:m
+    for v=1:n
+        H(u,v)=abs(T(u,v))^2/(T(u,v)*(abs(T(u,v))^2+K));
+    end
+end
+
+function [H]=yueshu(A,T,gama,P)
+[m,n]=size(A);
+H=zeros(m,n);
+for u=1:m
+    for v=1:n
+        H(u,v)=conj(T(u,v))/(abs(T(u,v))^2+gama*abs(P(u,v))^2);
+    end
+end
